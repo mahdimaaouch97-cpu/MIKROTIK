@@ -13,34 +13,43 @@ body{
   direction:rtl;
   padding:20px;
 }
-h1{
-  text-align:center;
-  margin-bottom:20px;
+h1{text-align:center;}
+input,button{
+  padding:10px;
+  border:none;
+  border-radius:6px;
 }
+input{
+  width:200px;
+}
+button{
+  background:#2563eb;
+  color:#fff;
+  cursor:pointer;
+}
+button:hover{background:#1d4ed8;}
 table{
   width:100%;
   border-collapse:collapse;
+  margin-top:20px;
 }
 th,td{
   padding:12px;
   text-align:center;
 }
-th{
-  background:#1e293b;
-}
-tr{
-  border-bottom:1px solid #334155;
-}
+th{background:#1e293b;}
+tr{border-bottom:1px solid #334155;}
 .status{
   font-weight:bold;
   padding:6px 12px;
   border-radius:20px;
 }
-.online{
-  background:#16a34a;
-}
-.offline{
+.online{background:#16a34a;}
+.offline{background:#dc2626;}
+.remove{
   background:#dc2626;
+  padding:6px 10px;
+  border-radius:6px;
 }
 </style>
 </head>
@@ -49,33 +58,57 @@ tr{
 
 <h1>📡 شاشة مراقبة IP</h1>
 
+<div style="text-align:center;">
+  <input type="text" id="ipInput" placeholder="أدخل IP">
+  <button onclick="addIP()">➕ إضافة</button>
+</div>
+
 <table>
 <thead>
 <tr>
   <th>IP</th>
   <th>الحالة</th>
   <th>آخر فحص</th>
+  <th>حذف</th>
 </tr>
 </thead>
 <tbody id="ipTable"></tbody>
 </table>
 
 <script>
-const ips = [
-  "192.168.0.1",
-  "192.168.0.254",
-  "8.8.8.8"
+let ips = JSON.parse(localStorage.getItem("ips")) || [
+  "192.168.0.1"
 ];
 
 const timeout = 3000;
 
+function saveIPs(){
+  localStorage.setItem("ips", JSON.stringify(ips));
+}
+
+function addIP(){
+  const input = document.getElementById("ipInput");
+  const ip = input.value.trim();
+
+  if(!ip || ips.includes(ip)) return;
+
+  ips.push(ip);
+  saveIPs();
+  input.value = "";
+  refresh();
+}
+
+function removeIP(ip){
+  ips = ips.filter(i => i !== ip);
+  saveIPs();
+  refresh();
+}
+
 function checkIP(ip){
   const controller = new AbortController();
-  const signal = controller.signal;
-
   setTimeout(() => controller.abort(), timeout);
 
-  return fetch("http://" + ip, { mode:"no-cors", signal })
+  return fetch("http://" + ip, { mode:"no-cors", signal:controller.signal })
     .then(() => true)
     .catch(() => false);
 }
@@ -87,19 +120,20 @@ async function refresh(){
   for(const ip of ips){
     let online = await checkIP(ip);
 
-    const tr = document.createElement("tr");
-
-    tr.innerHTML = `
-      <td>${ip}</td>
-      <td>
-        <span class="status ${online ? "online" : "offline"}">
-          ${online ? "ONLINE" : "OFFLINE"}
-        </span>
-      </td>
-      <td>${new Date().toLocaleTimeString()}</td>
+    table.innerHTML += `
+      <tr>
+        <td>${ip}</td>
+        <td>
+          <span class="status ${online ? "online" : "offline"}">
+            ${online ? "ONLINE" : "OFFLINE"}
+          </span>
+        </td>
+        <td>${new Date().toLocaleTimeString()}</td>
+        <td>
+          <button class="remove" onclick="removeIP('${ip}')">✖</button>
+        </td>
+      </tr>
     `;
-
-    table.appendChild(tr);
   }
 }
 
