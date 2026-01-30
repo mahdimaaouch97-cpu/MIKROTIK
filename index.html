@@ -2,101 +2,109 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<title>لوحة مراقبة الأجهزة</title>
+<title>شاشة مراقبة IP</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
 body{
   background:#0f172a;
   color:#fff;
-  font-family:Arial;
+  font-family:Arial, sans-serif;
   direction:rtl;
   padding:20px;
 }
-h1{text-align:center;margin-bottom:15px}
-
-.stats{
-  display:flex;
-  gap:15px;
-  justify-content:center;
+h1{
+  text-align:center;
   margin-bottom:20px;
 }
-.stat{
-  padding:12px 18px;
-  border-radius:14px;
+table{
+  width:100%;
+  border-collapse:collapse;
 }
-.green{background:#16a34a}
-.red{background:#dc2626}
-
-.dashboard{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
-  gap:20px;
-}
-
-.card{
-  border-radius:16px;
-  padding:16px;
+th,td{
+  padding:12px;
   text-align:center;
-  box-shadow:0 10px 25px rgba(0,0,0,0.4);
 }
-
-.online{background:#16a34a}
-.offline{background:#dc2626;animation:blink 1s infinite}
-@keyframes blink{50%{opacity:.5}}
-
-.name{font-size:17px;font-weight:bold}
-.ip{font-size:14px;opacity:.9}
-.time{font-size:12px;margin-top:6px}
+th{
+  background:#1e293b;
+}
+tr{
+  border-bottom:1px solid #334155;
+}
+.status{
+  font-weight:bold;
+  padding:6px 12px;
+  border-radius:20px;
+}
+.online{
+  background:#16a34a;
+}
+.offline{
+  background:#dc2626;
+}
 </style>
 </head>
 
 <body>
 
-<h1>🖥️ شاشة مراقبة الأجهزة</h1>
+<h1>📡 شاشة مراقبة IP</h1>
 
-<div class="stats">
-  <div class="stat green" id="onCount">🟢 يعمل: 0</div>
-  <div class="stat red" id="offCount">🔴 متوقف: 0</div>
-</div>
-
-<div class="dashboard" id="dashboard"></div>
+<table>
+<thead>
+<tr>
+  <th>IP</th>
+  <th>الحالة</th>
+  <th>آخر فحص</th>
+</tr>
+</thead>
+<tbody id="ipTable"></tbody>
+</table>
 
 <script>
-function loadStatus(){
-  fetch("status.json?"+Date.now())
-    .then(res => res.json())
-    .then(devices => {
-      const dash = document.getElementById("dashboard");
-      dash.innerHTML = "";
+const ips = [
+  "192.168.0.1",
+  "192.168.0.254",
+  "8.8.8.8"
+];
 
-      let on = 0, off = 0;
+const timeout = 3000;
 
-      devices.forEach(d => {
-        d.status === "online" ? on++ : off++;
+function checkIP(ip){
+  const controller = new AbortController();
+  const signal = controller.signal;
 
-        const card = document.createElement("div");
-        card.className = "card " + d.status;
-        card.innerHTML = `
-          <div class="name">${d.name}</div>
-          <div class="ip">${d.ip}</div>
-          <div>${d.status === "online" ? "🟢 يعمل" : "🔴 متوقف"}</div>
-          <div class="time">${d.time}</div>
-        `;
-        dash.appendChild(card);
-      });
+  setTimeout(() => controller.abort(), timeout);
 
-      document.getElementById("onCount").innerText = "🟢 يعمل: " + on;
-      document.getElementById("offCount").innerText = "🔴 متوقف: " + off;
-    })
-    .catch(() => {
-      document.getElementById("dashboard").innerHTML =
-        "<p style='text-align:center'>❌ لم يتم العثور على status.json</p>";
-    });
+  return fetch("http://" + ip, { mode:"no-cors", signal })
+    .then(() => true)
+    .catch(() => false);
 }
 
-loadStatus();
-setInterval(loadStatus,30000);
+async function refresh(){
+  const table = document.getElementById("ipTable");
+  table.innerHTML = "";
+
+  for(const ip of ips){
+    let online = await checkIP(ip);
+
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td>${ip}</td>
+      <td>
+        <span class="status ${online ? "online" : "offline"}">
+          ${online ? "ONLINE" : "OFFLINE"}
+        </span>
+      </td>
+      <td>${new Date().toLocaleTimeString()}</td>
+    `;
+
+    table.appendChild(tr);
+  }
+}
+
+refresh();
+setInterval(refresh, 10000);
 </script>
 
 </body>
